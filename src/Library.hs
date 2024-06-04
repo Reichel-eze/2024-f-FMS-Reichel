@@ -261,14 +261,66 @@ hardcore = cadena porMedioDeRimas' `combinaDos` esdrujulasV2
 -- C)¿Se podría saber si una estrofa con infinitos versos cumple con el patrón hardcore?
 
 estrofaInfinita :: Estrofa
-estrofaInfinita = repeat [versote1]
+estrofaInfinita = repeat "holi"
 
--- Se podria saber que una estrofa con infinitos versos NO cumpla con el patron hardcore, es decir, devuelta FALSE
--- La razon es porque ya con que uno de los patrones de hardcore NO se cumpla, Haskell no seguira avanzando en la lista inifinita de versos, 
--- 
+-- Se podria saber que una estrofa con infinitos versos NO cumpla con el patron hardcore, es decir, devueva FALSE
+-- La razon es porque ya con que uno de los patrones de hardcore NO se cumpla, Haskell no seguira avanzando en la lista inifinita de versos ya que cuenta con una evaluacion del tipo perezosa (lazy evaluation). 
+-- Entonces, por ejemplo si los dos primeros dos versos NO conjugan por medio de rimas, entonces NO es necesario seguir buscando en la lista
+-- Otro ejemplo seria, si el primer verso tiene su ultima palabra que NO es esdrujula, entonces la estrofa no cumple con el patron esdrujulas (ya si un verso no cumple, entonces TODOS no cumplen)
 
 -- ¿Y el aabb? Justifique en cada caso específicamente por qué (no valen respuestas genéricas).
+-- Ocurre algo similar que en el caso anterior, me puede devolver un FALSE si simplemente encuentra que el 1 verso NO rima con el 2 verso. 
+-- Pero tambien me puedo devolver TRUE, porque aunque tenga una estrofa infinita, yo solo quiero evaluar si riman el verso 1 con el verso 2 y el verso 3 con el verso 4, entonces luego de comprobar eso
+-- los demas versos que me sobran de la estrofa infinita NO seran necesarios evaluarlos (todo esto gracias a la evaluacion perezosa que tiene Haskell)
 
+-- 4) Hacer que un artista se tire un freestyle a partir de la estrofa que quiere decir y 
+-- el estilo que le quiera dar a su puesta en escena. 
+-- Para ello se parte siempre de una puesta base que tiene potencia 1 y el público tranquilo, 
+-- la que luego varía según el estilo utilizado.
+-- El resultado de que un artista se tire un freestyle es una puesta en escena.
 
+-- Por ahora pudimos identificar las siguientes variables significativas de una puesta en escena: 
+-- si el público está exaltado o no, la potencia (un número), además de, claro está, 
+-- la estrofa del freestyle (una sola, la puesta es por estrofa) y el artista.
 
+data PuestaEnEscena = UnaPuestaEnEscena {
+    artista :: Artista,
+    publicoExaltado :: Bool,
+    potencia :: Number,
+    freestyle :: Estrofa
+}deriving Show
 
+puestaBase :: Artista -> Estrofa -> PuestaEnEscena
+puestaBase mc estrofa = UnaPuestaEnEscena {artista = mc, freestyle = estrofa, potencia = 1, publicoExaltado = False}
+
+modificacionDePotenciaSegunPorcentaje :: Number -> PuestaEnEscena -> PuestaEnEscena
+modificacionDePotenciaSegunPorcentaje porcentaje puesta = puesta {potencia = ((100 + porcentaje)* potencia puesta) `div`100 } 
+
+exaltarPublico :: Bool -> PuestaEnEscena -> PuestaEnEscena
+exaltarPublico exaltado puesta = puesta {publicoExaltado = exaltado}
+
+exaltarPublicoSiCumple :: Patron -> PuestaEnEscena -> PuestaEnEscena
+exaltarPublicoSiCumple patron puesta = exaltarPublico (cumplePatron puesta patron) puesta 
+
+cumplePatron :: PuestaEnEscena -> Patron -> Bool          -- si el artista puede lograr algun patron en particular con la estrofa del freestyle de la puesta en escena
+cumplePatron puesta patron = patron (freestyle puesta)
+
+-- Además nos dimos cuenta que en cada puesta en escena cada artista utiliza un estilo distinto, 
+-- dependiendo del mensaje que quiere transmitir, que altera la puesta en escena original. Identificamos los siguientes casos:
+-- Gritar: aumenta la potencia en un 50%
+-- Responder un acote: conociendo su efectividad, aumenta la potencia en un 20%, y además el público queda exaltado si la respuesta fue efectiva, sino no lo queda.
+-- Tirar técnicas: se refiere a cuando el artista deja en evidencia que puede lograr algún patrón en particular, aumenta la potencia en un 10%, además el público se exalta si la estrofa cumple con dicho patrón, sino no.
+
+type Estilo = PuestaEnEscena -> PuestaEnEscena
+
+gritar :: Estilo
+gritar = modificacionDePotenciaSegunPorcentaje 50
+
+responderUnAcote :: Bool -> Estilo
+responderUnAcote efectiva = exaltarPublico efectiva . modificacionDePotenciaSegunPorcentaje 20
+
+tirarTecnicas :: Patron -> Estilo
+tirarTecnicas patron =  exaltarPublicoSiCumple patron . modificacionDePotenciaSegunPorcentaje 10
+
+tirarfreestyle :: Artista -> Estrofa -> Estilo -> PuestaEnEscena 
+tirarfreestyle artista estrofa estilo = estilo (puestaBase artista estrofa)
